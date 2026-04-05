@@ -13,3 +13,7 @@ Requires macOS (tested with 12 - 14), Xcode or command line tools, internet to f
 - [LukeZGD](https://github.com/LukeZGD): many tools from [Legacy-iOS-Kit](https://github.com/LukeZGD/Legacy-iOS-Kit)
 - [phoenix3200](https://github.com/phoenix3200): [decache](https://github.com/phoenix3200/decache), basis for graphics driver extractor
 - Apple: [dyld](https://github.com/apple-oss-distributions/dyld), all iOS components, etc.
+
+## photos
+
+![Nicole's iPad 1 with the iOS 7 springboard and keyboard](.photos/IMG_1398.jpeg) ![Nicole's iPad 1 with the about screen indicating iOS 7.1.2](.photos/IMG_1396.jpeg)
