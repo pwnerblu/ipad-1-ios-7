@@ -2,7 +2,7 @@
 
 Rewritten version of [ios7resources-ipad1](https://github.com/pwnerblu/ios7resources-ipad1) with enhancements.
 
-Requires macOS (tested with 12 - 14), Xcode or command line tools, internet to fetch dependencies, and root access to preserve perms while patching iOS filesystem. Jailbreak and hactivation are optionally supported. Use `run.tool` to download files, assemble IPSW and restore.
+Requires macOS (tested with High Sierra - Sonoma), Xcode or command line tools, internet to fetch dependencies, and root access to preserve perms while patching iOS filesystem. Jailbreak and hactivation are optionally supported. Use `run.tool` to download files, assemble IPSW and restore.
 
 ## credits
 

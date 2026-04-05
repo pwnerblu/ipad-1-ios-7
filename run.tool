@@ -68,7 +68,7 @@ function setup()
 	unzip "$ipsw_7_ipad" -d ios_7_ipad
 	unzip "$ipsw_7_iphone" -d ios_7_iphone
 	
-	# for rootfs (ipad kc doesn't even start to boot the ramdisk? idk why)
+	# for rootfs
 	
 	dmg extract ios_7_ipad/058-4388-009.dmg root.dmg -k 2ce48d3e6cbd6fd68c775f2f0261e205f27c78280035bb6bffadccfbec44f4d890bd34b9
 	hdiutil resize -size 1.5g root.dmg
@@ -112,7 +112,7 @@ function patch_boot_files()
 	python3 "$code/ddt fixed.py" apply DeviceTree.bin DeviceTree.patched "$code/device tree.diff"
 	xpwntool DeviceTree.patched output/Firmware/all_flash/all_flash.k48ap.production/DeviceTree.k48ap.img3 -t ios_5_ipad/Firmware/all_flash/all_flash.k48ap.production/DeviceTree.k48ap.img3
 	
-	# kc
+	# iphone kc (ipad kc doesn't even start to boot the ramdisk? idk why)
 	
 	cp ios_7_iphone/kernelcache.release.n90 output/kernelcache.release.k48
 }
@@ -186,7 +186,7 @@ yolosign("dyld_shared_cache_armv7.patched", [off2page(64288286)])'
 
 function patch_jailbreak
 {
-	base64 -d < "$repo_lyncis/resources/jailbreak/bootstrap.tar.b64" | sudo tar xf - -C "$root"
+	base64 -D < "$repo_lyncis/resources/jailbreak/bootstrap.tar.b64" | sudo tar xf - -C "$root"
 	
 	# TODO: badly messed this up to work around problems i don't understand
 	# no libmis.dylib, breaks profiled and isn't needed with nyansatan's untether
@@ -194,12 +194,12 @@ function patch_jailbreak
 	# use dirhelper instead of CrashHousekeeping to load earlier and fix substrate not injecting early enough (broken appsync, high graphics..)
 	# don't move daemons to /Library because it breaks internet (i think just mDNSResponder?) and doesn't seem necessary?
 	
-	base64 -d < "$repo_lyncis/resources/jailbreak/lyncis.tar.b64" | sudo tar xf - -C "$root"
+	base64 -D < "$repo_lyncis/resources/jailbreak/lyncis.tar.b64" | sudo tar xf - -C "$root"
 	sudo rm "$root/install.sh"
 	sudo rm "$root/usr/lib/libmis.dylib"
 	sudo mv "$root/aquila" "$root/usr/libexec/dirhelper"
 	
-	# optional debs to be automatically installed (ssh, substrate, ioreg..)
+	# optional debs to be automatically installed
 	
 	sudo cp -R "$debs/" "$root/private/var/root/Media/Cydia/AutoInstall"
 }
@@ -279,12 +279,7 @@ PATH+=":/usr/libexec:$repo_legacy/bin/macos"
 
 eject_all
 
-if [[ -e "$temp/output.ipsw" ]]
-then
-	arg_skip_build=$(prompt_yes_no 'use existing ipsw?')
-fi
-
-if [[ $arg_skip_build ]]
+if [[ -e "$temp/output.ipsw" && $(prompt_yes_no 'use existing ipsw?') ]]
 then
 	pushd "$temp"
 	message 'summary: using prebuilt ipsw, jailbreak unknown, hactivate unknown\n'
