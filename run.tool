@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 code="$PWD/resources"
 deps="$PWD/dependencies"
 temp="$PWD/temp"
+artifacts="$PWD/artifacts"
 
 repo_6="$deps/SundanceInH2A"
 repo_legacy="$deps/Legacy-iOS-Kit"
@@ -27,22 +28,24 @@ function get_deps
 	mkdir "$deps"
 	pushd "$deps"
 	
-	git clone 'https://github.com/NyanSatan/SundanceInH2A'
-	git -C SundanceInH2A checkout 0218b8db7d89a643cd0ad28f29fbdf496b88d4e3
+	curl -Lf 'https://github.com/NyanSatan/SundanceInH2A/archive/03865acd7b6064d7616fd34595410d707fb6fdbd.zip' | tar xf -
+	mv SundanceInH2A-* SundanceInH2A
+	
+	curl -Lf 'https://github.com/LukeZGD/Legacy-iOS-Kit/archive/88d0fc5931b40204f7b1ec095f7e928fd6b0f595.zip' | tar xf -
+	mv Legacy-iOS-Kit-* Legacy-iOS-Kit
 
-	git clone 'https://github.com/LukeZGD/Legacy-iOS-Kit'
-	git -C Legacy-iOS-Kit checkout 26fffdfdaaa247577ecfaad4377cb6f697716bd5
+	curl -Lf 'https://github.com/staturnzz/lyncis_site/archive/49f7206119c5b66fa1b1d5d57083ecb4864ca584.zip' | tar xf -
+	mv lyncis_site-* lyncis_site
 
-	git clone 'https://github.com/staturnzz/lyncis_site'
-	git -C lyncis_site checkout 49f7206119c5b66fa1b1d5d57083ecb4864ca584
+	curl -Lf 'https://github.com/apple-oss-distributions/dyld/archive/4983666182a957ceca3553910bb407cee5259581.zip' | tar xf -
+	mv dyld-* dyld
 
-	git clone 'https://github.com/apple-oss-distributions/dyld'
-	git -C dyld checkout dyld-353.2.1
-
-	curl -f 'https://secure-appldnld.apple.com/iOS5.1.1/041-4292.02120427.Tkk0d/iPad1,1_5.1.1_9B206_Restore.ipsw' -O
-	curl -f 'https://secure-appldnld.apple.com/iOS7.1/031-4776.20140627.JjYSr/iPad2,1_7.1.2_11D257_Restore.ipsw' -O
-	curl -f 'http://appldnld.apple.com/iOS7.1/031-4812.20140627.cq6y8/iPhone3,1_7.1.2_11D257_Restore.ipsw' -O
-
+	curl -LfO 'https://secure-appldnld.apple.com/iOS5.1.1/041-4292.02120427.Tkk0d/iPad1,1_5.1.1_9B206_Restore.ipsw'
+	curl -LfO 'https://secure-appldnld.apple.com/iOS7.1/031-4776.20140627.JjYSr/iPad2,1_7.1.2_11D257_Restore.ipsw'
+	curl -LfO 'http://appldnld.apple.com/iOS7.1/031-4812.20140627.cq6y8/iPhone3,1_7.1.2_11D257_Restore.ipsw'
+	
+	# user may place debs (e.g. openssh) here for convenience
+	
 	mkdir debs
 	
 	popd
@@ -50,12 +53,13 @@ function get_deps
 
 function eject_all()
 {
-	set +e
-	diskutil eject "$root"
-	diskutil eject "$root_iphone"
-	diskutil eject "$root_5"
-	diskutil eject "$ramdisk"
-	set -e
+	for mount in "$root" "$root_iphone" "$root_5" "$ramdisk"
+	do
+		if [[ -e "$mount" ]]
+		then
+			diskutil eject "$mount"
+		fi
+	done
 }
 
 function setup()
@@ -64,9 +68,9 @@ function setup()
 	mkdir "$temp"
 	pushd "$temp"
 
-	unzip "$ipsw_5_ipad" -d ios_5_ipad
-	unzip "$ipsw_7_ipad" -d ios_7_ipad
-	unzip "$ipsw_7_iphone" -d ios_7_iphone
+	unzip -q "$ipsw_5_ipad" -d ios_5_ipad
+	unzip -q "$ipsw_7_ipad" -d ios_7_ipad
+	unzip -q "$ipsw_7_iphone" -d ios_7_iphone
 	
 	# for rootfs
 	
@@ -74,7 +78,7 @@ function setup()
 	hdiutil resize -size 1.5g root.dmg
 	hdiutil attach -owners on root.dmg
 	
-	# for kc and dsc
+	# for kc and graphics drivers
 	
 	dmg extract ios_7_iphone/058-4520-010.dmg root_ios_7_iphone.dmg -k 38d0320d099b9dd34ffb3308c53d397f14955b347d6a433fe173acc2ced1ae78756b3684
 	hdiutil attach -owners on root_ios_7_iphone.dmg
@@ -93,6 +97,50 @@ function setup()
 	cp -cR ios_5_ipad output
 }
 
+function build_artifacts()
+{
+	rm -rf "$artifacts"
+	mkdir "$artifacts"
+	
+	# reapply device tree diffs
+	
+	xpwntool output/Firmware/all_flash/all_flash.k48ap.production/DeviceTree.k48ap.img3 DeviceTree.bin -iv e0a3aa63dae431e573c9827dd3636dd1 -k 50208af7c2de617854635fb4fc4eaa8cddab0e9035ea25abf81b0fa8b0b5654f
+	
+	python3 "$repo_6/dt/ddt.py" apply DeviceTree.bin DeviceTree.patched "$code/device tree.diff"
+	python3 "$repo_6/dt/ddt.py" apply DeviceTree.patched DeviceTree.restore.patched "$code/device tree restore extra.diff"
+	
+	xpwntool DeviceTree.patched "$artifacts/DeviceTree.k48ap.img3" -t ios_5_ipad/Firmware/all_flash/all_flash.k48ap.production/DeviceTree.k48ap.img3
+	xpwntool DeviceTree.restore.patched "$artifacts/DeviceTree.k48ap.restore.img3" -t ios_5_ipad/Firmware/all_flash/all_flash.k48ap.production/DeviceTree.k48ap.img3
+	
+	# extract iphone dsc files
+	
+	clang -fmodules -I "$repo_dyld" "$code/dsc.m" -o dsc
+	
+	./dsc "$root_iphone/System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7" /System/Library/Extensions/IMGSGX535GLDriver.bundle/IMGSGX535GLDriver /System/Library/VideoDecoders/H264H2.videodecoder /System/Library/VideoDecoders/MP4VH2.videodecoder
+	codesign -fs - IMGSGX535GLDriver H264H2.videodecoder MP4VH2.videodecoder
+	mv IMGSGX535GLDriver H264H2.videodecoder MP4VH2.videodecoder "$artifacts"
+	
+	# TODO: cc workaround, still don't understand root cause, see UIScreenEdgePanRecognizer._useGrapeFlags?
+	
+	cp "$root/System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7" dyld_shared_cache_armv7.patched
+	
+	echo -n '\x00' | dd conv=notrunc bs=1 seek=64288286 of=dyld_shared_cache_armv7.patched
+	
+	# re-sign (boots without it, but intermittent codesigning crashes)
+	
+	PYTHONPATH="$repo_6" python3 -c 'from yolosign import off2page, yolosign
+yolosign("dyld_shared_cache_armv7.patched", [off2page(64288286)])'
+	
+	# generate a diff to apply without python
+	
+	xxd "$root/System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7" > dyld_shared_cache_armv7.hex
+	xxd dyld_shared_cache_armv7.patched > dyld_shared_cache_armv7.patched.hex
+	
+	set +e
+	diff dyld_shared_cache_armv7.hex dyld_shared_cache_armv7.patched.hex > "$artifacts/dyld_shared_cache_armv7.patch"
+	set -e
+}
+
 function patch_boot_files()
 {
 	# iboot stuff that i don't understand, from pwnerblu's script
@@ -106,18 +154,18 @@ function patch_boot_files()
 	img3maker -f iBSS.patched -o output/Firmware/dfu/iBSS.k48ap.RELEASE.dfu -t ibss
 	img3maker -f iBEC.patched -o output/Firmware/dfu/iBEC.k48ap.RELEASE.dfu -t ibec
 	
-	# device tree diff, based on pwnerblu's with fixes
+	# device tree, based on pwnerblu's with fixes
 	
-	cp $code/DeviceTree.k47ap.img3 output/Firmware/all_flash/all_flash.k48ap.production/DeviceTree.k48ap.img3
-
-	# Yes, I am absolutely aware that k49ap isn't actually for hardware, but it's for custom rdtr only - pwnerblu
-	cp $code/DeviceTree.k48ap.img3 output/Firmware/all_flash/all_flash.k48ap.production/DeviceTree.k49ap.img3
-	# iphone kc (ipad kc doesn't even start to boot the ramdisk? idk why)
+	cp "$artifacts/DeviceTree.k48ap.img3" output/Firmware/all_flash/all_flash.k48ap.production
+	
+	# device tree to be used for restore specifically, thank you pwnerblu!
+	
+	cp "$artifacts/DeviceTree.k48ap.restore.img3" output/Firmware/all_flash/all_flash.k48ap.production
+	PlistBuddy output/BuildManifest.plist -c 'set BuildIdentities:0:Manifest:RestoreDeviceTree:Info:Path Firmware/all_flash/all_flash.k48ap.production/DeviceTree.k48ap.restore.img3'
+	
+	# iphone kc (ipad 2 kc incompatible)
 	
 	cp ios_7_iphone/kernelcache.release.n90 output/kernelcache.release.k48
-
-	# custom buildmanifest
-	cp $code/BuildManifest.plist output/BuildManifest.plist
 }
 
 function patch_root
@@ -141,37 +189,22 @@ function patch_root
 	
 	sudo rm -r "$root/System/Library/HIDPlugins/CompassPlugIn.plugin"
 	
-	# TODO: cc workaround, still don't understand root cause, see UIScreenEdgePanRecognizer._useGrapeFlags?
+	# ipad dsc patch
 	
-	cp "$root/System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7" dyld_shared_cache_armv7.patched
-	
-	echo -n '\x00' | dd conv=notrunc bs=1 seek=64288286 of=dyld_shared_cache_armv7.patched
-	
-	# re-sign dsc (boots without it, but intermittent codesigning crashes)
-	
-	PYTHONPATH="$repo_6" python3 -c 'from yolosign import off2page, yolosign
-yolosign("dyld_shared_cache_armv7.patched", [off2page(64288286)])'
+	xxd "$root/System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7" > dyld_shared_cache_armv7.hex
+	patch dyld_shared_cache_armv7.hex < "$artifacts/dyld_shared_cache_armv7.patch"
+	xxd -r dyld_shared_cache_armv7.hex > dyld_shared_cache_armv7.patched
 	
 	sudo cp dyld_shared_cache_armv7.patched "$root/System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7"
 	sudo chown -R root:wheel "$root/System/Library/Caches/com.apple.dyld"
 	sudo chmod -R 755 "$root/System/Library/Caches/com.apple.dyld"
 	
-	# iphone dsc graphics drivers
+	# iphone dsc graphics drivers, so we can keep ipad dsc (for keyboard, etc)
 	
-	clang -fmodules -I "$repo_dyld" "$code/dsc.m" -o dsc
-	
-	./dsc "$root_iphone/System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7" /System/Library/Extensions/IMGSGX535GLDriver.bundle/IMGSGX535GLDriver
-	codesign -fs - IMGSGX535GLDriver
 	sudo mkdir "$root/System/Library/Extensions/IMGSGX535GLDriver.bundle"
-	sudo cp IMGSGX535GLDriver "$root/System/Library/Extensions/IMGSGX535GLDriver.bundle"
-
-	./dsc "$root_iphone/System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7" /System/Library/VideoDecoders/H264H2.videodecoder
-	codesign -fs - H264H2.videodecoder
-	sudo cp H264H2.videodecoder "$root/System/Library/VideoDecoders"
-
-	./dsc "$root_iphone/System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7" /System/Library/VideoDecoders/MP4VH2.videodecoder
-	codesign -fs - MP4VH2.videodecoder
-	sudo cp MP4VH2.videodecoder "$root/System/Library/VideoDecoders"
+	sudo cp "$artifacts/IMGSGX535GLDriver" "$root/System/Library/Extensions/IMGSGX535GLDriver.bundle"
+	
+	sudo cp "$artifacts/H264H2.videodecoder" "$artifacts/MP4VH2.videodecoder" "$root/System/Library/VideoDecoders"
 	
 	# bluetooth and hactivation
 	# TODO: should probably grab a new clean gestalt plist just to be sure
@@ -235,7 +268,7 @@ function finalize
 	img3maker -f ramdisk.dmg -o output/038-4361-021.dmg -t rdsk
 	
 	pushd output
-	zip -r ../output.ipsw *
+	zip -r -q ../output.ipsw *
 	popd
 }
 
@@ -278,6 +311,7 @@ then
 fi
 
 xattr -cr "$repo_legacy/bin/macos"
+chmod -R +x "$repo_legacy/bin/macos"
 PATH+=":/usr/libexec:$repo_legacy/bin/macos"
 
 eject_all
@@ -292,6 +326,13 @@ else
 	arg_hactivate=$(prompt_yes_no 'hactivate?')
 	
 	setup
+	
+	if [[ ! -e "$artifacts" ]]
+	then
+		prompt_enter 'missing artifacts. re-download the repo, or enter to rebuild'
+		
+		build_artifacts
+	fi
 	
 	patch_boot_files
 	patch_root $arg_hactivate
