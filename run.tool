@@ -7,18 +7,45 @@ code="$PWD/resources"
 deps="$PWD/dependencies"
 temp="$PWD/temp"
 artifacts="$PWD/artifacts"
+echo "What iOS are you trying to install?"
+read version_ios
+if [[ $version_ios == 7.1.2 ]]; then
+	ipsw_7_ipad="$deps/iPad2,1_7.1.2_11D257_Restore.ipsw"
+    ipsw_7_iphone="$deps/iPhone3,1_7.1.2_11D257_Restore.ipsw"
+    root=/Volumes/Sochi11D257.K93OS
+    root_iphone=/Volumes/Sochi11D257.N90OS
+    root_key_iphone="38d0320d099b9dd34ffb3308c53d397f14955b347d6a433fe173acc2ced1ae78756b3684"
+    root_key_ipad="2ce48d3e6cbd6fd68c775f2f0261e205f27c78280035bb6bffadccfbec44f4d890bd34b9"
+    rdsk_iv="45edee56bb315e7319e87aaa14ee0e08"
+    rdsk_key="52ead031c3511af2c8e82f8a1185e77aa807c33d3df0db7809e6a23c59c2b15b"
+    ipsw_url_ipad="https://secure-appldnld.apple.com/iOS7.1/031-4776.20140627.JjYSr/iPad2,1_7.1.2_11D257_Restore.ipsw"
+    ipsw_url_iphone="http://appldnld.apple.com/iOS7.1/031-4812.20140627.cq6y8/iPhone3,1_7.1.2_11D257_Restore.ipsw"
+    fs_name_ipad="058-4388-009.dmg"
+    fs_name_iphone="058-4520-010.dmg"
+    rdsk_name="058-4228-009.dmg"
+elif [[ $version_ios == 7.1.1 ]]; then
+	ipsw_7_ipad="$deps/iPad2,1_7.1.1_11D201_Restore.ipsw"
+    ipsw_7_iphone="$deps/iPhone3,1_7.1.1_11D201_Restore.ipsw"
+    root=/Volumes/SUSochi11D201.K93OS
+    root_iphone=/Volumes/SUSochi11D201.N90OS
+    root_key_iphone="3625d825f8513f666a8293cc5162770238676e3e6476a44b34e9583ce3850527b7ccd367"
+    root_key_ipad="0d1063596253f7606124904ae8bcc47daae5c9bd031835caaf2dc0539919acf3e21ba83a"
+    rdsk_iv="b939b1eace3f92d8a7a06578668f3df8"
+    rdsk_key="e0b0e13670ae63c557c6f7cb4b321568e7dcc01a442515270dd5df63e52bb75f"
+    ipsw_url_ipad="https://secure-appldnld.apple.com/iOS7.1/031-00151.20140425.v0Bd0/iPad2,1_7.1.1_11D201_Restore.ipsw"
+    ipsw_url_iphone="https://secure-appldnld.apple.com/iOS7.1/031-00357.20140425.ZFJJw/iPhone3,1_7.1.1_11D201_Restore.ipsw"
+    fs_name_ipad="058-00314-002.dmg"
+    fs_name_iphone="058-00422-002.dmg"
+    rdsk_name="058-00183-002.dmg"
+fi
 
 repo_6="$deps/SundanceInH2A"
 repo_legacy="$deps/Legacy-iOS-Kit"
 repo_lyncis="$deps/lyncis_site"
 repo_dyld="$deps/dyld"
 ipsw_5_ipad="$deps/iPad1,1_5.1.1_9B206_Restore.ipsw"
-ipsw_7_ipad="$deps/iPad2,1_7.1.2_11D257_Restore.ipsw"
-ipsw_7_iphone="$deps/iPhone3,1_7.1.2_11D257_Restore.ipsw"
 debs="$deps/debs"
 
-root=/Volumes/Sochi11D257.K93OS
-root_iphone=/Volumes/Sochi11D257.N90OS
 root_5=/Volumes/Hoodoo9B206.K48OS
 ramdisk=/Volumes/ramdisk
 
@@ -41,8 +68,8 @@ function get_deps
 	mv dyld-* dyld
 
 	curl -LfO 'https://secure-appldnld.apple.com/iOS5.1.1/041-4292.02120427.Tkk0d/iPad1,1_5.1.1_9B206_Restore.ipsw'
-	curl -LfO 'https://secure-appldnld.apple.com/iOS7.1/031-4776.20140627.JjYSr/iPad2,1_7.1.2_11D257_Restore.ipsw'
-	curl -LfO 'http://appldnld.apple.com/iOS7.1/031-4812.20140627.cq6y8/iPhone3,1_7.1.2_11D257_Restore.ipsw'
+	curl -LfO $ipsw_url_ipad
+	curl -LfO $ipsw_url_iphone
 	
 	# user may place debs (e.g. openssh) here for convenience
 	
@@ -74,13 +101,13 @@ function setup()
 	
 	# for rootfs
 	
-	dmg extract ios_7_ipad/058-4388-009.dmg root.dmg -k 2ce48d3e6cbd6fd68c775f2f0261e205f27c78280035bb6bffadccfbec44f4d890bd34b9
+	dmg extract ios_7_ipad/$fs_name_ipad root.dmg -k $root_key_ipad
 	hdiutil resize -size 1.5g root.dmg
 	hdiutil attach -owners on root.dmg
 	
 	# for kc and graphics drivers
 	
-	dmg extract ios_7_iphone/058-4520-010.dmg root_ios_7_iphone.dmg -k 38d0320d099b9dd34ffb3308c53d397f14955b347d6a433fe173acc2ced1ae78756b3684
+	dmg extract ios_7_iphone/$fs_name_iphone root_ios_7_iphone.dmg -k $root_key_iphone
 	hdiutil attach -owners on root_ios_7_iphone.dmg
 	
 	# for other boot files and drivers
@@ -90,7 +117,7 @@ function setup()
 	
 	# restore ramdisk
 	
-	xpwntool ios_7_ipad/058-4228-009.dmg ramdisk.dmg -iv 45edee56bb315e7319e87aaa14ee0e08 -k 52ead031c3511af2c8e82f8a1185e77aa807c33d3df0db7809e6a23c59c2b15b
+	xpwntool ios_7_ipad/$rdsk_name ramdisk.dmg -iv $rdsk_iv -k $rdsk_key
 	hdiutil resize -size 10m ramdisk.dmg
 	hdiutil attach -owners on ramdisk.dmg
 	
@@ -192,7 +219,9 @@ function patch_root
 	# ipad dsc patch
 	
 	xxd "$root/System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7" > dyld_shared_cache_armv7.hex
-	patch dyld_shared_cache_armv7.hex < "$artifacts/dyld_shared_cache_armv7.patch"
+	if [[ $version_ios == 7.1.2 ]]; then
+        patch dyld_shared_cache_armv7.hex < "$artifacts/dyld_shared_cache_armv7.patch"
+	fi
 	xxd -r dyld_shared_cache_armv7.hex > dyld_shared_cache_armv7.patched
 	
 	sudo cp dyld_shared_cache_armv7.patched "$root/System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7"
